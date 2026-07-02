@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source /opt/ros/humble/setup.bash
+source /ros2_ws/install/setup.bash
+exec ros2 launch realsense2_camera rs_launch.py \
+  depth_module.profile:=1024x768x30 \
+  pointcloud.enable:=true \
+  enable_sync:=true \
+  align_depth.enable:=true
