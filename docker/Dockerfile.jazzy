@@ -1,16 +1,18 @@
-FROM ros:humble-ros-base-jammy
+FROM ros:jazzy-ros-base-noble
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG LIBREALSENSE_VERSION=v2.54.2
 ARG REALSENSE_ROS_VERSION=4.54.1
 
-ENV ROS_DISTRO=humble \
+ENV ROS_DISTRO=jazzy \
     RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    gcc-12 \
+    g++-12 \
     cmake \
     build-essential \
     pkg-config \
@@ -27,25 +29,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglu1-mesa-dev \
     udev \
     v4l-utils \
-    ros-humble-demo-nodes-cpp \
-    ros-humble-image-tools \
-    ros-humble-rqt-image-view \
-    ros-humble-rviz2 \
-    ros-humble-rmw-cyclonedds-cpp \
-    ros-humble-diagnostic-updater \
-    ros-humble-cv-bridge \
-    ros-humble-image-transport \
-    ros-humble-tf2-ros \
-    ros-humble-xacro \
+    ros-jazzy-rmw-cyclonedds-cpp \
+    ros-jazzy-diagnostic-updater \
+    ros-jazzy-cv-bridge \
+    ros-jazzy-image-transport \
+    ros-jazzy-tf2-ros \
+    ros-jazzy-xacro \
     && rm -rf /var/lib/apt/lists/*
 
-# Build librealsense from pinned source. Avoid DKMS inside container.
+# Experimental Jazzy variant.
+# Keep librealsense pinned to the last known L515-friendly version. Build it
+# with GCC 12 because v2.54.2 can fail under Ubuntu 24.04's default GCC 13.
 WORKDIR /opt/src
 RUN git clone https://github.com/IntelRealSense/librealsense.git && \
     cd librealsense && \
     git checkout ${LIBREALSENSE_VERSION} && \
     mkdir -p build && cd build && \
     cmake .. \
+      -DCMAKE_C_COMPILER=gcc-12 \
+      -DCMAKE_CXX_COMPILER=g++-12 \
       -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_EXAMPLES=true \
       -DBUILD_GRAPHICAL_EXAMPLES=false \
@@ -55,14 +57,16 @@ RUN git clone https://github.com/IntelRealSense/librealsense.git && \
     make install && \
     ldconfig
 
-# Copy udev rules into the image for reference; host still controls actual device permissions.
 RUN cp /opt/src/librealsense/config/99-realsense-libusb.rules /etc/udev/rules.d/ || true
 
-# Build realsense-ros from pinned source.
 WORKDIR /ros2_ws/src
 RUN git clone https://github.com/realsenseai/realsense-ros.git && \
     cd realsense-ros && \
-    git checkout ${REALSENSE_ROS_VERSION}
+    git checkout ${REALSENSE_ROS_VERSION} && \
+    if [ "${REALSENSE_ROS_VERSION}" = "4.54.1" ]; then \
+      perl -0pi -e 's#elseif\("\$ENV\{ROS_DISTRO\}" STREQUAL "rolling"\)#elseif("\$ENV{ROS_DISTRO}" STREQUAL "jazzy")\n  message(STATUS "Build for ROS2 Jazzy (experimental, using Humble/Iron parameter backend)")\n  set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} -DJAZZY -DHUMBLE")\n  set(SOURCES "\${SOURCES}" src/ros_param_backend_foxy.cpp)\nelseif("\$ENV{ROS_DISTRO}" STREQUAL "rolling")#' \
+        realsense2_camera/CMakeLists.txt; \
+    fi
 
 WORKDIR /ros2_ws
 RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \

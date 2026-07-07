@@ -1,4 +1,4 @@
-# L515 ROS2 Humble Docker
+# L515 ROS2 Docker
 
 A reproducible Docker environment for the Intel RealSense L515, allowing the camera to run on modern Linux systems (e.g. Ubuntu 24.04 + ROS 2 Jazzy) while keeping the last known working software stack inside an Ubuntu 22.04 + ROS 2 Humble container.
 
@@ -31,10 +31,58 @@ For simplicity, the container runs with `--privileged` e `/dev` mounted from the
 ./scripts/build.sh
 ```
 
+To build the experimental Jazzy image:
+
+```bash
+./scripts/build.sh jazzy
+```
+
 ## Run
 
 ```bash
 ./scripts/run.sh
+```
+
+The runner creates one persistent container and opens a shell in it. Running the
+same command from another terminal opens another shell in the same container.
+
+ROS network environment variables are loaded from:
+
+```bash
+ros_network.env
+```
+
+By default this file restricts ROS 2 discovery to the local machine:
+
+```bash
+ROS_LOCALHOST_ONLY=1
+ROS_DOMAIN_ID=0
+RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+```
+
+With `--net=host`, the container shares the host network namespace, so localhost
+inside the container is the host localhost. If you need to communicate with ROS 2
+nodes on other PCs, set `ROS_LOCALHOST_ONLY=0` or remove it from
+`ros_network.env`, and use the same `ROS_DOMAIN_ID` on the machines that should
+see each other.
+
+To run the experimental Jazzy image instead of the default Humble image:
+
+```bash
+IMAGE=l515-jazzy:2.54.2-4.54.1-experimental CONTAINER_NAME=l515-jazzy ./scripts/run.sh
+```
+
+The Humble image remains the stable L515 baseline. The Jazzy image is provided
+to test host/container ROS 2 compatibility with Jazzy systems.
+
+The Jazzy image still defaults to `librealsense v2.54.2` for L515 support and
+`realsense-ros 4.54.1`. That wrapper release does not officially support Jazzy,
+so the Dockerfile applies a small experimental CMake patch that treats Jazzy like
+the Humble/Iron-era ROS 2 backend. It builds that SDK with GCC 12 to avoid Ubuntu
+24.04/GCC 13 build failures. To test another SDK version:
+
+```bash
+./scripts/build.sh jazzy --build-arg LIBREALSENSE_VERSION=v2.56.0
 ```
 
 ## Launch the Camera
@@ -42,8 +90,6 @@ For simplicity, the container runs with `--privileged` e `/dev` mounted from the
 Inside the container:
 
 ```bash
-source /opt/ros/humble/setup.bash
-source /ros2_ws/install/setup.bash
 ros2 launch realsense2_camera rs_launch.py \
   depth_module.profile:=1024x768x30 \
   pointcloud.enable:=true
@@ -59,13 +105,25 @@ l515-camera
 
 ```bash
 ros2 topic list
-ros2 topic echo /camera/camera/depth/camera_info --once
+ros2 topic hz /camera/color/camera_info
+ros2 topic echo /camera/color/image_raw --qos-reliability best_effort --once
+```
+
+To visually check the RGB stream inside the container:
+
+```bash
+ros2 run image_tools showimage --ros-args -r image:=/camera/color/image_raw
 ```
 
 ## Host Jazzy
 
-When the host is running ROS 2 Jazzy, the container can publish standard ROS messages over DDS using `--net=host`.
-This project uses CycloneDDS to maximize interoperability between ROS 2 distributions.
+When the host is running ROS 2 Jazzy, the Humble container may discover topics
+over DDS using `--net=host`, but cross-distro communication is not always
+reliable for all topic types, QoS settings, and RMW combinations. If topics are
+visible but `ros2 topic echo` does not receive data, first try matching the RMW
+implementation on both sides, then test the experimental Jazzy image.
+
+This project uses CycloneDDS by default to keep the middleware choice explicit.
 
 ## Notes
 
