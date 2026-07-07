@@ -29,6 +29,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglu1-mesa-dev \
     udev \
     v4l-utils \
+    ros-jazzy-demo-nodes-cpp \
+    ros-jazzy-image-tools \
+    ros-jazzy-rqt-image-view \
+    ros-jazzy-rviz2 \
     ros-jazzy-rmw-cyclonedds-cpp \
     ros-jazzy-diagnostic-updater \
     ros-jazzy-cv-bridge \

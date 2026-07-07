@@ -52,19 +52,19 @@ ROS network environment variables are loaded from:
 ros_network.env
 ```
 
-By default this file restricts ROS 2 discovery to the local machine:
+By default this file keeps the container off the common ROS domain 0 and disables
+the ROS 2 CLI daemon cache while debugging:
 
 ```bash
-ROS_LOCALHOST_ONLY=1
-ROS_DOMAIN_ID=0
+ROS_LOCALHOST_ONLY=0
+ROS_DOMAIN_ID=42
 RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ROS_DISABLE_DAEMON=1
 ```
 
-With `--net=host`, the container shares the host network namespace, so localhost
-inside the container is the host localhost. If you need to communicate with ROS 2
-nodes on other PCs, set `ROS_LOCALHOST_ONLY=0` or remove it from
-`ros_network.env`, and use the same `ROS_DOMAIN_ID` on the machines that should
-see each other.
+With `--net=host`, the container shares the host network namespace. If you need
+to communicate with ROS 2 nodes on other PCs, use the same `ROS_DOMAIN_ID` on the
+machines that should see each other.
 
 To run the experimental Jazzy image instead of the default Humble image:
 
@@ -113,6 +113,13 @@ To visually check the RGB stream inside the container:
 
 ```bash
 ros2 run image_tools showimage --ros-args -r image:=/camera/color/image_raw
+```
+
+For quick DDS checks without the camera, run these in two terminals:
+
+```bash
+./scripts/run.sh --talker
+./scripts/run.sh --listener
 ```
 
 ## Host Jazzy
