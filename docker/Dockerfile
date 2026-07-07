@@ -48,7 +48,7 @@ RUN git clone https://github.com/IntelRealSense/librealsense.git && \
     cmake .. \
       -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_EXAMPLES=true \
-      -DBUILD_GRAPHICAL_EXAMPLES=false \
+      -DBUILD_GRAPHICAL_EXAMPLES=true \
       -DBUILD_WITH_CUDA=false \
       -DFORCE_RSUSB_BACKEND=true && \
     make -j$(nproc) && \

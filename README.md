@@ -115,6 +115,13 @@ To visually check the RGB stream inside the container:
 ros2 run image_tools showimage --ros-args -r image:=/camera/color/image_raw
 ```
 
+The image also builds the librealsense graphical tools. To open the native
+RealSense viewer:
+
+```bash
+./scripts/run.sh realsense-viewer
+```
+
 For quick DDS checks without the camera, run these in two terminals:
 
 ```bash
