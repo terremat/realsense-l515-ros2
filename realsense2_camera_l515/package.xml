@@ -1,10 +1,13 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<!-- Modified in 2026 by Matteo Terreran: package renamed to realsense2_camera_l515,
+     new description and maintainer, dropped the librealsense2 dependency (the
+     library is installed by scripts/install_librealsense_l515.sh). -->
 <package format="3">
-  <name>realsense2_camera</name>
+  <name>realsense2_camera_l515</name>
   <version>4.54.1</version>
-  <description>RealSense camera package allowing access to Intel SR300 and D400 3D cameras</description>
-  <maintainer email="librs.ros@intel.com">LibRealSense ROS Team</maintainer>
+  <description>RealSense camera package for the Intel L515, adapted for ROS 2 Jazzy from realsense-ros 4.54.1. Uses librealsense 2.54.2 from /opt/librealsense-l515.</description>
+  <maintainer email="matteo.terreran@unipd.it">Matteo Terreran</maintainer>
   <license>Apache License 2.0</license>
   
   <url type="website">http://www.ros.org/wiki/RealSense</url>
@@ -17,7 +20,6 @@
   <depend>builtin_interfaces</depend>
   <depend>cv_bridge</depend>
   <depend>image_transport</depend>
-  <depend>librealsense2</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
   <depend>realsense2_camera_msgs</depend>

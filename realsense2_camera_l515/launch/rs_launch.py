@@ -1,3 +1,5 @@
+# Modified in 2026 by Matteo Terreran: package name changed to realsense2_camera_l515.
+
 # Copyright 2023 Intel Corporation. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -93,7 +95,7 @@ def launch_setup(context, *args, **kwargs):
     if (os.getenv('ROS_DISTRO') == "dashing") or (os.getenv('ROS_DISTRO') == "eloquent"):
         return [
             launch_ros.actions.Node(
-                package='realsense2_camera',
+                package='realsense2_camera_l515',
                 node_namespace=LaunchConfiguration("camera_name"),
                 node_name=LaunchConfiguration("camera_name"),
                 node_executable='realsense2_camera_node',
@@ -108,7 +110,7 @@ def launch_setup(context, *args, **kwargs):
     else:
         return [
             launch_ros.actions.Node(
-                package='realsense2_camera',
+                package='realsense2_camera_l515',
                 namespace=LaunchConfiguration("camera_name"),
                 name=LaunchConfiguration("camera_name"),
                 executable='realsense2_camera_node',

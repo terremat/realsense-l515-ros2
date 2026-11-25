@@ -1,3 +1,8 @@
+# Modified in 2026 by Matteo Terreran: package and library renamed to
+# realsense2_camera_l515; added the Jazzy branch; librealsense 2.54.2 is taken
+# from L515_LIBREALSENSE_ROOT (headers first in the include path, INSTALL_RPATH);
+# headers and ament exports are no longer installed.
+
 # Copyright 2023 Intel Corporation. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +18,7 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.5)
-project(realsense2_camera)
+project(realsense2_camera_l515)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -116,9 +121,10 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(diagnostic_updater REQUIRED)
 
-find_package(realsense2 2.54.1)
+set(L515_LIBREALSENSE_ROOT /opt/librealsense-l515 CACHE PATH "Prefix of the L515 librealsense 2.54.2")
+find_package(realsense2 2.54.2 EXACT QUIET PATHS ${L515_LIBREALSENSE_ROOT} NO_DEFAULT_PATH)
 if(NOT realsense2_FOUND)
-    message(FATAL_ERROR "\n\n Intel RealSense SDK 2.0 is missing, please install it from https://github.com/IntelRealSense/librealsense/releases\n\n")
+    message(FATAL_ERROR "\n\n librealsense 2.54.2 not found in ${L515_LIBREALSENSE_ROOT}; install it with scripts/install_librealsense_l515.sh\n\n")
 endif()
 
 #set(CMAKE_NO_SYSTEM_FROM_IMPORTED true)
@@ -167,6 +173,10 @@ elseif("$ENV{ROS_DISTRO}" STREQUAL "humble")
 elseif("$ENV{ROS_DISTRO}" STREQUAL "iron")
   message(STATUS "Build for ROS2 Iron")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIRON")
+  set(SOURCES "${SOURCES}" src/ros_param_backend_foxy.cpp)
+elseif("$ENV{ROS_DISTRO}" STREQUAL "jazzy")
+  message(STATUS "Build for ROS2 Jazzy (using Humble/Iron parameter backend)")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DJAZZY -DHUMBLE")
   set(SOURCES "${SOURCES}" src/ros_param_backend_foxy.cpp)
 elseif("$ENV{ROS_DISTRO}" STREQUAL "rolling")
   message(STATUS "Build for ROS2 Rolling")
@@ -220,6 +230,13 @@ target_link_libraries(${PROJECT_NAME}
     ${realsense2_LIBRARY}
     )
 
+# Use the private librealsense headers, not the ones of the apt librealsense2
+# that may be installed under the ROS prefix.
+target_include_directories(${PROJECT_NAME} BEFORE PRIVATE ${realsense2_INCLUDE_DIR})
+
+# Find the private librealsense at run time, without LD_LIBRARY_PATH.
+set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH "${L515_LIBREALSENSE_ROOT}/lib")
+
 set(dependencies
   cv_bridge
   image_transport
@@ -260,12 +277,6 @@ install(TARGETS ${PROJECT_NAME}
   RUNTIME DESTINATION bin
 )
 
-# Install headers
-install(
-  DIRECTORY include/
-  DESTINATION include
-)
-
 # Install launch files
 install(DIRECTORY 
     launch
@@ -276,10 +287,5 @@ install(DIRECTORY
 if(BUILD_TESTING)
 # This does nothing for now, note that ROS build farm build with BUILD_TESTING=1
 endif()
-
-# Ament exports
-ament_export_include_directories(include)
-ament_export_libraries(${PROJECT_NAME})
-ament_export_dependencies(${dependencies})
 
 ament_package()
