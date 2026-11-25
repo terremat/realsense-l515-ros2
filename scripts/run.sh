@@ -4,9 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-IMAGE="${IMAGE:-l515-humble:2.54.2-4.54.1}"
-CONTAINER_NAME="${CONTAINER_NAME:-l515-humble}"
-ROS_ENV_FILE="${ROS_ENV_FILE:-${ROOT_DIR}/ros_network.env}"
+IMAGE="${IMAGE:-realsense-l515-ros2:jazzy}"
+CONTAINER_NAME="${CONTAINER_NAME:-l515}"
+ROS_ENV_FILE="${ROS_ENV_FILE:-${ROOT_DIR}/docker/ros_network.env}"
 ROS_ENV_KEYS=()
 
 usage() {
@@ -143,7 +143,7 @@ if [ "$#" -eq 0 ]; then
 fi
 
 if [ "${1:-}" = "--debug-ros" ]; then
-  set -- bash -lc 'set -e; echo "container=$(hostname)"; echo "ROS_DISTRO=${ROS_DISTRO:-}"; echo "ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-}"; echo "ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-}"; echo "ROS_AUTOMATIC_DISCOVERY_RANGE=${ROS_AUTOMATIC_DISCOVERY_RANGE:-}"; echo "RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-}"; ros2 daemon stop >/dev/null 2>&1 || true; echo "--- nodes"; ros2 node list --no-daemon || true; echo "--- topics"; ros2 topic list --no-daemon || true'
+  set -- bash -lc 'set -e; echo "container=$(hostname)"; echo "ROS_DISTRO=${ROS_DISTRO:-}"; echo "ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-}"; echo "ROS_AUTOMATIC_DISCOVERY_RANGE=${ROS_AUTOMATIC_DISCOVERY_RANGE:-}"; echo "RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-}"; ros2 daemon stop >/dev/null 2>&1 || true; echo "--- nodes"; ros2 node list --no-daemon || true; echo "--- topics"; ros2 topic list --no-daemon || true'
 fi
 
 if [ "${1:-}" = "--talker" ]; then
