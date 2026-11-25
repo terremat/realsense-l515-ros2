@@ -1,144 +1,140 @@
-# L515 ROS2 Docker
+# realsense-l515-ros2
 
-A reproducible Docker environment for the Intel RealSense L515, allowing the camera to run on modern Linux systems (e.g. Ubuntu 24.04 + ROS 2 Jazzy) while keeping the last known working software stack inside an Ubuntu 22.04 + ROS 2 Humble container.
+Run the Intel RealSense **L515** on **ROS 2 Jazzy / Ubuntu 24.04**.
 
-The goal of this project is to preserve compatibility with the Intel RealSense L515, which has reached End of Life (EOL) and is no longer supported by the latest librealsense releases.
+The L515 has reached End of Life (EOL): the last releases supporting it are
+librealsense 2.54.2 and realsense-ros 4.54.1, while ROS 2 Jazzy ships newer
+versions that no longer detect it. This repository keeps those versions working
+on Jazzy, in two ways:
 
-This project is pinned to the last known working combination for the L515:
-- Ubuntu 22.04 Jammy nel container
-- ROS2 Humble
-- librealsense `v2.54.2`
-- realsense-ros `4.54.1`
+| | Native installation | Docker |
+|---|---|---|
+| On the host | librealsense 2.54.2 + the `realsense2_camera_l515` ROS 2 package | Docker only |
+| Run the camera with | `ros2 launch` from your workspace | `./scripts/run.sh` |
+| Best for | PCs with other RealSense cameras or ROS 2 workspaces | quick use, or hosts you prefer to keep clean |
 
-## Host Requirements
+Both use the same pinned software:
 
-The host only needs Docker (or Podman) and USB access to the camera.
+- **librealsense 2.54.2**, built into its own prefix `/opt/librealsense-l515`,
+  separate from any other librealsense on the system;
+- **`realsense2_camera_l515`**, the realsense-ros 4.54.1 node, renamed so it
+  can run next to the standard `realsense2_camera` used for other RealSense
+  cameras (e.g. D455).
 
-For Ubuntu:
+## Native installation
 
-```bash
-sudo apt update
-sudo apt install -y docker.io git
-sudo usermod -aG docker $USER
-```
-Then log out and log back in.
-
-For simplicity, the container runs with `--privileged` e `/dev` mounted from the host. For production deployments, device access can be restricted as needed.
-
-## Build
+### 1. Install librealsense 2.54.2
 
 ```bash
-./scripts/build.sh
+mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
+git clone https://github.com/terremat/realsense-l515-ros2.git
+cd realsense-l515-ros2
+./scripts/install_librealsense_l515.sh
 ```
 
-To build the experimental Jazzy image:
+The script installs the build dependencies with apt, builds librealsense
+(15–20 minutes) into `/opt/librealsense-l515` and adds an L515-only udev rule
+(`/etc/udev/rules.d/99-realsense-l515.rules`). It also links two librealsense
+2.54.2 tools into `~/.local/bin`: `rs-enumerate-devices-l515` and
+`realsense-viewer-l515`.
+
+Reconnect the camera, then check it:
 
 ```bash
-./scripts/build.sh jazzy
+rs-enumerate-devices-l515 -s
 ```
 
-## Run
+### 2. Build the ROS 2 package
 
 ```bash
-./scripts/run.sh
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+rosdep install --from-paths src --ignore-src -y
+colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
 ```
 
-The runner creates one persistent container and opens a shell in it. Running the
-same command from another terminal opens another shell in the same container.
-
-ROS network environment variables are loaded from:
+## Usage
 
 ```bash
-ros_network.env
+ros2 launch realsense2_camera_l515 rs_launch.py serial_no:=_<serial> camera_name:=l515 \
+  depth_module.profile:=1024x768x30 rgb_camera.profile:=1280x720x30
 ```
 
-By default this file keeps the container off the common ROS domain 0 and disables
-the ROS 2 CLI daemon cache while debugging:
+Topics are published under `/<camera_name>/`, e.g. `/l515/color/image_raw` and
+`/l515/depth/image_rect_raw`. Main launch arguments:
+
+| Argument | Description |
+|---|---|
+| `serial_no` | camera serial number; the leading `_` keeps it a string |
+| `camera_name` | namespace and node name (default `camera`) |
+| `depth_module.profile` | depth resolution and fps, e.g. `1024x768x30` |
+| `rgb_camera.profile` | color resolution and fps, e.g. `1280x720x30` |
+| `enable_color`, `enable_depth` | enable the streams (default `true`) |
+| `align_depth.enable` | publish depth aligned to color |
+| `pointcloud.enable` | publish a point cloud |
+| `config_file` | YAML file with further node parameters |
+
+### Depth stopping every second
+
+If the log repeats `Receiver light saturation, stream stopped for 1 sec`, the
+sensor is saturated by ambient light or by close, reflective objects. Change
+the preset (`1` Default, `2` No Ambient Light, `3` Low Ambient Light,
+`4` Max Range, `5` Short Range) while the node is running:
 
 ```bash
-ROS_LOCALHOST_ONLY=0
-ROS_DOMAIN_ID=42
-RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-ROS_DISABLE_DAEMON=1
+ros2 param set /l515/l515 depth_module.visual_preset 5
 ```
 
-With `--net=host`, the container shares the host network namespace. If you need
-to communicate with ROS 2 nodes on other PCs, use the same `ROS_DOMAIN_ID` on the
-machines that should see each other.
+or at startup, with `config_file:=<file>.yaml` containing
+`depth_module.visual_preset: 5`.
 
-To run the experimental Jazzy image instead of the default Humble image:
+### Tools
+
+- `rs-enumerate-devices-l515` and `realsense-viewer-l515` use librealsense 2.54.2.
+- The viewer may warn that udev rules are missing: it only looks for the
+  standard rule file names, so with the L515 rule installed you can ignore it.
+- Do not use these tools to update the firmware of other RealSense cameras.
+
+## Docker
+
+From the repository root:
 
 ```bash
-IMAGE=l515-jazzy:2.54.2-4.54.1-experimental CONTAINER_NAME=l515-jazzy ./scripts/run.sh
+docker build -f docker/Dockerfile -t realsense-l515-ros2:jazzy .
+./scripts/run.sh                                  # shell in a persistent container
+./scripts/run.sh ros2 launch realsense2_camera_l515 rs_launch.py serial_no:=_<serial>
+./scripts/run.sh realsense-viewer-l515
 ```
 
-The Humble image remains the stable L515 baseline. The Jazzy image is provided
-to test host/container ROS 2 compatibility with Jazzy systems.
+- `run.sh` starts the container with USB access (`--privileged`, `/dev`), the
+  host network and X11; further calls open more shells or run commands in the
+  same container. The host needs neither ROS nor udev rules.
+- ROS network settings come from `docker/ros_network.env` (override with
+  `ROS_ENV_FILE`). `ROS_DOMAIN_ID` must match the nodes the container talks to.
+- `./scripts/run.sh --help` lists the DDS test helpers (`--talker`,
+  `--listener`, `--debug-ros`) and `--stop` / `--rm`.
 
-The Jazzy image still defaults to `librealsense v2.54.2` for L515 support and
-`realsense-ros 4.54.1`. That wrapper release does not officially support Jazzy,
-so the Dockerfile applies a small experimental CMake patch that treats Jazzy like
-the Humble/Iron-era ROS 2 backend. It builds that SDK with GCC 12 to avoid Ubuntu
-24.04/GCC 13 build failures. To test another SDK version:
+## Building other code against librealsense 2.54.2
 
-```bash
-./scripts/build.sh jazzy --build-arg LIBREALSENSE_VERSION=v2.56.0
-```
+When a system or apt librealsense is also installed:
 
-## Launch the Camera
+- find it only in the private prefix:
+  `find_package(realsense2 2.54.2 EXACT PATHS /opt/librealsense-l515 NO_DEFAULT_PATH)`;
+- put its headers first:
+  `target_include_directories(<target> BEFORE PRIVATE ${realsense2_INCLUDE_DIR})`;
+- set the target `INSTALL_RPATH` to `/opt/librealsense-l515/lib`.
 
-Inside the container:
+See `realsense2_camera_l515/CMakeLists.txt` for an example.
 
-```bash
-ros2 launch realsense2_camera rs_launch.py \
-  depth_module.profile:=1024x768x30 \
-  pointcloud.enable:=true
-```
+## License
 
-Alternatively, use the provided shortcut:
+Apache License 2.0, see [LICENSE](LICENSE).
 
-```bash
-l515-camera
-```
+`realsense2_camera_l515` is derived from
+[realsense-ros](https://github.com/realsenseai/realsense-ros) 4.54.1 by Intel
+Corporation; its `LICENSE` and `NOTICE` are in the package folder and modified
+files are marked. librealsense is downloaded and built from
+[upstream](https://github.com/IntelRealSense/librealsense) during installation.
 
-## Verify topic
-
-```bash
-ros2 topic list
-ros2 topic hz /camera/color/camera_info
-ros2 topic echo /camera/color/image_raw --qos-reliability best_effort --once
-```
-
-To visually check the RGB stream inside the container:
-
-```bash
-ros2 run image_tools showimage --ros-args -r image:=/camera/color/image_raw
-```
-
-The image also builds the librealsense graphical tools. To open the native
-RealSense viewer:
-
-```bash
-./scripts/run.sh realsense-viewer
-```
-
-For quick DDS checks without the camera, run these in two terminals:
-
-```bash
-./scripts/run.sh --talker
-./scripts/run.sh --listener
-```
-
-## Host Jazzy
-
-When the host is running ROS 2 Jazzy, the Humble container may discover topics
-over DDS using `--net=host`, but cross-distro communication is not always
-reliable for all topic types, QoS settings, and RMW combinations. If topics are
-visible but `ros2 topic echo` does not receive data, first try matching the RMW
-implementation on both sides, then test the experimental Jazzy image.
-
-This project uses CycloneDDS by default to keep the middleware choice explicit.
-
-## Notes
-
-Do not upgrade `librealsense` o `realsense-ros`. The Docker image intentionally pins the SDK and ROS wrapper to the last known working versions for the L515.
+Intel and RealSense are trademarks of Intel Corporation, used here descriptively.
